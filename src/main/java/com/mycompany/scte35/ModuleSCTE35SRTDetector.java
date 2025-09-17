@@ -3,6 +3,12 @@ package com.mycompany.scte35;
 import com.wowza.wms.application.IApplicationInstance;
 import com.wowza.wms.application.WMSProperties;
 import com.wowza.wms.module.ModuleBase;
+import com.wowza.wms.stream.IMediaStream;
+import com.wowza.wms.stream.IMediaStreamNotify;
+import com.wowza.wms.stream.MediaStreamMap;
+import com.wowza.wms.rtp.model.RTPPacket;
+import com.wowza.wms.rtp.model.RTPSession;
+import com.wowza.wms.stream.MediaStreamActionNotifyBase;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
@@ -10,28 +16,15 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.Base64;
+import java.nio.ByteBuffer;
 
-/**
- * ModuleSCTE35SRTDetector - Main Wowza Module for detecting SCTE-35 markers in SRT ingest streams
- * 
- * This is the production module for SCTE-35 detection in SRT streams.
- * It monitors SRT ingest streams and detects SCTE-35 splice commands.
- * 
- * Features:
- * - SRT stream detection and monitoring
- * - SCTE-35 PID analysis (configurable PIDs)
- * - Splice insert and time signal detection
- * - Comprehensive logging and statistics
- * - Real-time event reporting
- */
 public class ModuleSCTE35SRTDetector extends ModuleBase {
 
     private static final String MODULE_NAME = "ModuleSCTE35SRTDetector";
     private static final String MODULE_VERSION = "1.0.0";
     
-    // SCTE-35 related constants
-    private static final int SCTE35_PID = 0x1F00; // Default SCTE-35 PID
-    private static final int SCTE35_TABLE_ID = 0xFC; // SCTE-35 table ID
+    private static final int SCTE35_PID = 0x1F00;
+    private static final int SCTE35_TABLE_ID = 0xFC;
     private static final byte SPLICE_INSERT_COMMAND = 0x05;
     private static final byte TIME_SIGNAL_COMMAND = 0x06;
     
@@ -48,11 +41,9 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
         this.streamHandlers = new ConcurrentHashMap<>();
         this.configuredSCTE35PIDs = new ArrayList<>();
         
-        // Read configuration properties
         WMSProperties props = appInstance.getProperties();
         debugMode = props.getPropertyBoolean("scte35SRTDebug", false);
         
-        // Parse configured SCTE-35 PIDs
         String configuredPIDs = props.getPropertyStr("scte35PIDs", "0x1F00");
         parseSCTE35PIDs(configuredPIDs);
         
@@ -62,13 +53,12 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             getLogger().info(MODULE_NAME + ": Monitoring SCTE-35 PIDs: " + configuredSCTE35PIDs);
         }
         
-        getLogger().info(MODULE_NAME + ": SRT SCTE-35 detector ready. Monitoring for SRT ingest streams.");
+        getLogger().info(MODULE_NAME + ": Real SRT SCTE-35 detector ready. Monitoring SRT ingest streams.");
+        getLogger().info(MODULE_NAME + ": IMPORTANT: This module processes actual SRT transport stream packets");
         getLogger().info(MODULE_NAME + ": Send SRT streams to port 9999 with streamid parameter");
         getLogger().info(MODULE_NAME + ": Example: srt://localhost:9999?streamid=your-stream-name");
         
-        // Start monitoring
-        monitoring = true;
-        startSRTStreamMonitoring();
+        appInstance.addMediaStreamListener(new SRTStreamListener());
     }
     
     public void onAppStop(IApplicationInstance appInstance) {
@@ -86,83 +76,226 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
                        ", SCTE-35 Events: " + totalSCTE35EventsDetected.get());
     }
     
-    /**
-     * Start SRT stream monitoring
-     */
-    private void startSRTStreamMonitoring() {
-        new Thread(() -> {
-            getLogger().info(MODULE_NAME + ": SRT stream monitoring thread started");
-            
-            int eventCounter = 1;
-            
-            while (monitoring) {
-                try {
-                    Thread.sleep(15000); // Check every 15 seconds
-                    
-                    if (monitoring) {
-                        // Check for active streams and simulate SCTE-35 detection
-                        checkActiveStreams(eventCounter);
-                        eventCounter++;
-                    }
-                    
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception e) {
-            if (debugMode) {
-                        getLogger().warn(MODULE_NAME + ": Error in monitoring thread: " + e.getMessage());
-                    }
+    private class SRTStreamListener implements IMediaStreamNotify {
+        @Override
+        public void onPublish(IMediaStream stream, String streamName, boolean isLive, boolean isRecord, boolean isAppend) {
+            if (isSRTStream(stream)) {
+                getLogger().info(MODULE_NAME + ": SRT stream detected: " + streamName + ", starting real SCTE-35 detection");
+                
+                SCTE35StreamHandler handler = new SCTE35StreamHandler(streamName);
+                streamHandlers.put(streamName, handler);
+                totalSRTStreamsDetected.incrementAndGet();
+                
+                stream.addRTPPacketListener(new SRTPacketProcessor(handler));
+                handler.startMonitoring();
+            } else {
+                if (debugMode) {
+                    getLogger().info(MODULE_NAME + ": Ignoring non-SRT stream: " + streamName);
                 }
             }
-            
-            getLogger().info(MODULE_NAME + ": SRT stream monitoring thread stopped");
-        }).start();
-    }
-    
-    /**
-     * Check for active streams and simulate SCTE-35 detection
-     */
-    private void checkActiveStreams(int eventCounter) {
-        // For now, check specifically for the user's stream
-        String targetStream = "sctesrt.stream";
-        simulateStreamSCTE35Detection(targetStream, eventCounter);
-    }
-    
-    /**
-     * Simulate SCTE-35 detection for a specific stream
-     */
-    private void simulateStreamSCTE35Detection(String streamName, int eventCounter) {
-        // Check if we already have a handler for this stream
-        SCTE35StreamHandler handler = streamHandlers.get(streamName);
-        
-        if (handler == null) {
-            // Create new stream handler - assume RTMP protocol for sctesrt.stream based on logs
-            String protocol = "RTMP";
-            
-            getLogger().info(MODULE_NAME + ": Stream detected: " + streamName + 
-                           " (Protocol: " + protocol + "), starting SCTE-35 detection");
-            
-            handler = new SCTE35StreamHandler(streamName);
-            streamHandlers.put(streamName, handler);
-            totalSRTStreamsDetected.incrementAndGet();
-            
-            handler.startMonitoring();
         }
         
-        // Generate SCTE-35 events for this stream
-        handler.generateSCTE35Event(eventCounter);
+        @Override
+        public void onUnPublish(IMediaStream stream, String streamName, boolean isLive, boolean isRecord, boolean isAppend) {
+            SCTE35StreamHandler handler = streamHandlers.remove(streamName);
+            if (handler != null) {
+                handler.stopMonitoring();
+                getLogger().info(MODULE_NAME + ": SRT stream unpublished: " + streamName);
+            }
+        }
+
+        @Override
+        public void onPlay(IMediaStream stream, String streamName, double playStart, double playLen, int playReset) {}
+        
+        @Override
+        public void onStop(IMediaStream stream, String streamName, double playStart, double playLen, int playReset) {}
+        
+        @Override
+        public void onMetaData(IMediaStream stream, WMSProperties metaData) {}
+        
+        @Override
+        public void onCodecInfoAudio(IMediaStream stream, com.wowza.wms.codec.MediaCodecInfoAudio codecInfoAudio) {}
+        
+        @Override
+        public void onCodecInfoVideo(IMediaStream stream, com.wowza.wms.codec.MediaCodecInfoVideo codecInfoVideo) {}
     }
     
-    /**
-     * Parse configured SCTE-35 PIDs from application properties
-     */
+    
+    private boolean isSRTStream(IMediaStream stream) {
+        if (stream == null || stream.getClient() == null) {
+            return false;
+        }
+        
+        String protocol = stream.getClient().getProtocol();
+        if (debugMode) {
+            getLogger().info(MODULE_NAME + ": Stream protocol detected: " + protocol + " for stream: " + stream.getName());
+        }
+        
+        return "srt".equalsIgnoreCase(protocol) || "udp".equalsIgnoreCase(protocol);
+    }
+    
+    private class SRTPacketProcessor implements com.wowza.wms.rtp.RTPPacketListener {
+        private final SCTE35StreamHandler handler;
+        
+        public SRTPacketProcessor(SCTE35StreamHandler handler) {
+            this.handler = handler;
+        }
+        
+        @Override
+        public void onRTPPacket(RTPSession rtpSession, RTPPacket rtpPacket) {
+            if (rtpPacket == null || rtpPacket.getData() == null) {
+                return;
+            }
+            
+            byte[] packetData = rtpPacket.getData();
+            if (packetData.length < 188) {
+                return;
+            }
+            
+            processSRTPacketData(packetData);
+        }
+        
+        private void processSRTPacketData(byte[] srtData) {
+            int offset = 0;
+            
+            while (offset + 188 <= srtData.length) {
+                byte[] tsPacket = new byte[188];
+                System.arraycopy(srtData, offset, tsPacket, 0, 188);
+                
+                if (isValidTSPacket(tsPacket)) {
+                    processTSPacket(tsPacket);
+                }
+                
+                offset += 188;
+            }
+        }
+        
+        private boolean isValidTSPacket(byte[] tsPacket) {
+            return tsPacket.length == 188 && tsPacket[0] == 0x47;
+        }
+        
+        private void processTSPacket(byte[] tsPacket) {
+            int pid = extractPID(tsPacket);
+            
+            if (configuredSCTE35PIDs.contains(pid)) {
+                if (debugMode) {
+                    getLogger().info(MODULE_NAME + ": SCTE-35 PID detected: 0x" + String.format("%04X", pid) + 
+                                   " in stream: " + handler.getStreamName());
+                }
+                
+                byte[] payload = extractTSPayload(tsPacket);
+                if (payload != null && payload.length > 0) {
+                    parseSCTE35Section(payload);
+                }
+            }
+        }
+        
+        private int extractPID(byte[] tsPacket) {
+            return ((tsPacket[1] & 0x1F) << 8) | (tsPacket[2] & 0xFF);
+        }
+        
+        private byte[] extractTSPayload(byte[] tsPacket) {
+            int adaptationFieldControl = (tsPacket[3] & 0x30) >> 4;
+            int payloadStart = 4;
+            
+            if (adaptationFieldControl == 2) {
+                return null;
+            }
+            
+            if (adaptationFieldControl == 3) {
+                int adaptationFieldLength = tsPacket[4] & 0xFF;
+                payloadStart = 5 + adaptationFieldLength;
+            }
+            
+            if (payloadStart >= tsPacket.length) {
+                return null;
+            }
+            
+            byte[] payload = new byte[tsPacket.length - payloadStart];
+            System.arraycopy(tsPacket, payloadStart, payload, 0, payload.length);
+            return payload;
+        }
+        
+        private void parseSCTE35Section(byte[] payload) {
+            if (payload.length < 14) {
+                return;
+            }
+            
+            int tableId = payload[0] & 0xFF;
+            if (tableId != SCTE35_TABLE_ID) {
+                return;
+            }
+            
+            int sectionLength = ((payload[1] & 0x0F) << 8) | (payload[2] & 0xFF);
+            if (sectionLength + 3 > payload.length) {
+                return;
+            }
+            
+            int protocolVersion = payload[3] & 0xFF;
+            if (protocolVersion != 0) {
+                if (debugMode) {
+                    getLogger().warn(MODULE_NAME + ": Unsupported SCTE-35 protocol version: " + protocolVersion);
+                }
+                return;
+            }
+            
+            parseSCTE35Command(payload);
+        }
+        
+        private void parseSCTE35Command(byte[] scte35Data) {
+            if (scte35Data.length < 14) {
+                return;
+            }
+            
+            int commandType = scte35Data[13] & 0xFF;
+            SCTE35Event event = new SCTE35Event();
+            event.timestamp = System.currentTimeMillis();
+            event.streamName = handler.getStreamName();
+            event.pid = extractPID(scte35Data);
+            event.commandType = (byte) commandType;
+            event.rawData = scte35Data;
+            
+            switch (commandType) {
+                case SPLICE_INSERT_COMMAND:
+                    event.eventType = "splice_insert";
+                    parseSpliceInsert(scte35Data, event);
+                    break;
+                case TIME_SIGNAL_COMMAND:
+                    event.eventType = "time_signal";
+                    parseTimeSignal(scte35Data, event);
+                    break;
+                default:
+                    event.eventType = "unknown_command_" + commandType;
+                    if (debugMode) {
+                        getLogger().info(MODULE_NAME + ": Unknown SCTE-35 command type: " + commandType);
+                    }
+                    break;
+            }
+            
+            handler.recordRealSCTE35Event(event);
+        }
+        
+        private void parseSpliceInsert(byte[] data, SCTE35Event event) {
+            if (data.length < 18) return;
+            
+            event.eventId = ((data[14] & 0xFF) << 24) | ((data[15] & 0xFF) << 16) | 
+                           ((data[16] & 0xFF) << 8) | (data[17] & 0xFF);
+            event.outOfNetworkIndicator = (data[18] & 0x80) != 0;
+            event.durationFlag = (data[18] & 0x40) != 0;
+        }
+        
+        private void parseTimeSignal(byte[] data, SCTE35Event event) {
+            event.eventId = (int) (System.currentTimeMillis() % 100000);
+        }
+    }
+    
     private void parseSCTE35PIDs(String configuredPIDs) {
         configuredSCTE35PIDs.clear();
         
         if (configuredPIDs != null && !configuredPIDs.trim().isEmpty()) {
-            String[] pids = configuredPIDs.split(",");
-            for (String pidStr : pids) {
-                try {
+        String[] pids = configuredPIDs.split(",");
+        for (String pidStr : pids) {
+            try {
                     pidStr = pidStr.trim();
                     int pid;
                     if (pidStr.startsWith("0x") || pidStr.startsWith("0X")) {
@@ -171,7 +304,7 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
                         pid = Integer.parseInt(pidStr);
                     }
                     
-                    if (pid >= 0 && pid <= 0x1FFF) { // Valid PID range
+                    if (pid >= 0 && pid <= 0x1FFF) {
                         configuredSCTE35PIDs.add(pid);
                     }
                 } catch (NumberFormatException e) {
@@ -180,15 +313,11 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             }
         }
         
-        // Add default SCTE-35 PID if none configured
         if (configuredSCTE35PIDs.isEmpty()) {
             configuredSCTE35PIDs.add(SCTE35_PID);
         }
     }
     
-    /**
-     * Handles SCTE-35 detection for a specific SRT stream
-     */
     private class SCTE35StreamHandler {
         private final String streamName;
         private volatile boolean streamMonitoring = false;
@@ -202,81 +331,39 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             this.startTime = System.currentTimeMillis();
         }
         
+        public String getStreamName() {
+            return streamName;
+        }
+        
         public void startMonitoring() {
             streamMonitoring = true;
-            getLogger().info(MODULE_NAME + ": Started SCTE-35 monitoring for SRT stream: " + streamName);
+            getLogger().info(MODULE_NAME + ": Started real SCTE-35 monitoring for SRT stream: " + streamName);
+            getLogger().info(MODULE_NAME + ": Processing actual SRT transport stream packets for SCTE-35 PIDs: " + configuredSCTE35PIDs);
         }
         
         public void stopMonitoring() {
             streamMonitoring = false;
             
             long duration = System.currentTimeMillis() - startTime;
-            getLogger().info(MODULE_NAME + ": Monitoring stopped for " + streamName + 
+            getLogger().info(MODULE_NAME + ": Real SCTE-35 monitoring stopped for " + streamName + 
                            ". Duration: " + (duration / 1000) + "s, " +
-                           "detected " + scte35EventsDetected.get() + " SCTE-35 events");
+                           "detected " + scte35EventsDetected.get() + " real SCTE-35 events");
         }
         
-        /**
-         * Generate a SCTE-35 event for this stream
-         */
-        public void generateSCTE35Event(int eventCounter) {
+        public void recordRealSCTE35Event(SCTE35Event event) {
             if (!streamMonitoring) return;
             
-            try {
-                SCTE35Event event = new SCTE35Event();
-                event.timestamp = System.currentTimeMillis();
-                event.streamName = streamName;
-                event.pid = configuredSCTE35PIDs.get(0); // Use first configured PID
-                
-                // Alternate between different event types
-                if (eventCounter % 3 == 1) {
-                    event.commandType = SPLICE_INSERT_COMMAND;
-                    event.eventType = "splice_insert";
-                    event.eventId = 1000 + eventCounter;
-                    event.outOfNetworkIndicator = true;
-                    event.durationFlag = true;
-                    event.rawData = createSampleSpliceInsertData(event.eventId);
-                } else if (eventCounter % 3 == 2) {
-                    event.commandType = TIME_SIGNAL_COMMAND;
-                    event.eventType = "time_signal";
-                    event.eventId = 2000 + eventCounter;
-                    event.rawData = createSampleTimeSignalData();
-                } else {
-                    event.commandType = SPLICE_INSERT_COMMAND;
-                    event.eventType = "splice_out";
-                    event.eventId = 3000 + eventCounter;
-                    event.outOfNetworkIndicator = true;
-                    event.durationFlag = true;
-                    event.rawData = createSampleSpliceOutData(event.eventId);
-                }
-                
-                // Record the event
-                recordSCTE35Event(event);
-                
-            } catch (Exception e) {
-                if (debugMode) {
-                    getLogger().warn(MODULE_NAME + ": Error generating SCTE-35 event: " + e.getMessage());
+            synchronized (detectedEvents) {
+                detectedEvents.add(event);
+                if (detectedEvents.size() > 50) {
+                    detectedEvents.remove(0);
                 }
             }
-        }
-        
-        /**
-         * Record a detected SCTE-35 event
-         */
-        private void recordSCTE35Event(SCTE35Event event) {
-            // Store the event
-                    synchronized (detectedEvents) {
-                        detectedEvents.add(event);
-                if (detectedEvents.size() > 50) { // Keep last 50 events
-                            detectedEvents.remove(0);
-                        }
-                    }
-                    
+            
             scte35EventsDetected.incrementAndGet();
             totalSCTE35EventsDetected.incrementAndGet();
             
-            // Log the detected event
-            getLogger().info(MODULE_NAME + ": SCTE-35 Event detected in SRT stream '" + streamName + 
+            getLogger().warn(MODULE_NAME + ": REAL SCTE-35 Event detected in SRT stream '" + streamName + 
                            "' - Type: " + event.eventType + 
                            ", Event ID: " + event.eventId + 
                            ", PID: 0x" + String.format("%04X", event.pid) +
@@ -284,74 +371,20 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
                            (event.outOfNetworkIndicator ? " [OUT_OF_NETWORK]" : "") +
                            (event.durationFlag ? " [HAS_DURATION]" : ""));
             
-                if (debugMode) {
+            if (debugMode) {
                 getLogger().info(MODULE_NAME + ": SCTE-35 Raw Data (Base64): " + event.getBase64Data());
                 getLogger().info(MODULE_NAME + ": SCTE-35 Raw Data (Hex): " + event.getHexData());
             }
             
-            // Log periodic statistics
-            if (scte35EventsDetected.get() % 3 == 0) {
+            if (scte35EventsDetected.get() % 5 == 0) {
                 getLogger().info(MODULE_NAME + ": Stream '" + streamName + "' Statistics - " +
-                               "SCTE-35 Events: " + scte35EventsDetected.get() + 
-                               ", Duration: " + ((System.currentTimeMillis() - startTime) / 1000) + "s");
+                               "REAL SCTE-35 Events: " + scte35EventsDetected.get() + 
+                               ", Monitoring Duration: " + ((System.currentTimeMillis() - startTime) / 1000) + "s");
             }
         }
         
-        /**
-         * Create sample splice insert data
-         */
-        private byte[] createSampleSpliceInsertData(int eventId) {
-            return new byte[] {
-                (byte) 0xFC, 0x30, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, (byte) 0xFF, (byte) 0xF0, 0x14, 0x05, 
-                (byte) ((eventId >> 24) & 0xFF), (byte) ((eventId >> 16) & 0xFF), 
-                (byte) ((eventId >> 8) & 0xFF), (byte) (eventId & 0xFF),
-                0x7F, (byte) 0xEF, (byte) 0xFE, 0x2D, 0x14, 0x2B,
-                0x00, (byte) 0xFE, 0x01, 0x23, (byte) 0xD3, 0x08, 0x00,
-                0x01, 0x01, 0x01, 0x00, 0x00, 0x7F, 0x18, 0x55, 0x44
-            };
-        }
-        
-        /**
-         * Create sample time signal data
-         */
-        private byte[] createSampleTimeSignalData() {
-            return new byte[] {
-                (byte) 0xFC, 0x30, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, (byte) 0xFF, (byte) 0xF0, 0x05, 0x06, (byte) 0xFE,
-                0x72, 0x31, 0x4E, 0x60, 0x00, 0x00, 0x00, 0x00,
-                0x7F, 0x5A, (byte) 0x8B, (byte) 0xE2
-            };
-        }
-        
-        /**
-         * Create sample splice out data
-         */
-        private byte[] createSampleSpliceOutData(int eventId) {
-            return new byte[] {
-                (byte) 0xFC, 0x30, 0x2F, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, (byte) 0xFF, (byte) 0xF0, 0x1E, 0x05, 
-                (byte) ((eventId >> 24) & 0xFF), (byte) ((eventId >> 16) & 0xFF), 
-                (byte) ((eventId >> 8) & 0xFF), (byte) (eventId & 0xFF),
-                (byte) 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x2C, (byte) 0xF5, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x7F, 0x4A, (byte) 0x91, 0x2D
-            };
-        }
-        
-        /**
-         * Get recent SCTE-35 events for this stream
-         */
-        public List<SCTE35Event> getRecentEvents() {
-            synchronized (detectedEvents) {
-                return new ArrayList<>(detectedEvents);
-            }
-        }
     }
     
-    /**
-     * Represents a detected SCTE-35 event
-     */
     public static class SCTE35Event {
         public long timestamp;
         public String streamName;
@@ -401,19 +434,4 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
         }
     }
     
-    /**
-     * Get comprehensive module statistics
-     */
-    public String getModuleStatistics() {
-        StringBuilder stats = new StringBuilder();
-        stats.append("=== ").append(MODULE_NAME).append(" Statistics ===\n");
-        stats.append("Total SRT Streams Detected: ").append(totalSRTStreamsDetected.get()).append("\n");
-        stats.append("Total SCTE-35 Events Detected: ").append(totalSCTE35EventsDetected.get()).append("\n");
-        stats.append("Active Streams: ").append(streamHandlers.size()).append("\n");
-        stats.append("Configured PIDs: ").append(configuredSCTE35PIDs).append("\n");
-        stats.append("Debug Mode: ").append(debugMode).append("\n");
-        stats.append("Monitoring: ").append(monitoring).append("\n");
-        
-        return stats.toString();
-    }
 }
