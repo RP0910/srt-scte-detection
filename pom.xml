@@ -1,132 +1,132 @@
-&lt;?xml version="1.0" encoding="UTF-8"?&gt;
-&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-         http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     
-    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    <modelVersion>4.0.0</modelVersion>
     
-    &lt;groupId&gt;com.mycompany&lt;/groupId&gt;
-    &lt;artifactId&gt;wowza-scte35-srt-detector&lt;/artifactId&gt;
-    &lt;version&gt;1.0.0&lt;/version&gt;
-    &lt;packaging&gt;jar&lt;/packaging&gt;
+    <groupId>com.mycompany</groupId>
+    <artifactId>wowza-scte35-srt-detector</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
     
-    &lt;name&gt;Wowza SCTE-35 SRT Detector Module&lt;/name&gt;
-    &lt;description&gt;Wowza Streaming Engine module for detecting SCTE-35 markers from SRT ingest streams&lt;/description&gt;
+    <name>Wowza SCTE-35 SRT Detector Module</name>
+    <description>Wowza Streaming Engine module for detecting SCTE-35 markers from SRT ingest streams</description>
     
-    &lt;properties&gt;
-        &lt;maven.compiler.source&gt;8&lt;/maven.compiler.source&gt;
-        &lt;maven.compiler.target&gt;8&lt;/maven.compiler.target&gt;
-        &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
-        &lt;wowza.version&gt;4.8.24&lt;/wowza.version&gt;
-    &lt;/properties&gt;
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <wowza.version>4.8.24</wowza.version>
+    </properties>
     
-    &lt;dependencies&gt;
-        &lt;!-- Wowza Streaming Engine dependencies --&gt;
-        &lt;dependency&gt;
-            &lt;groupId&gt;com.wowza&lt;/groupId&gt;
-            &lt;artifactId&gt;wms-server&lt;/artifactId&gt;
-            &lt;version&gt;${wowza.version}&lt;/version&gt;
-            &lt;scope&gt;provided&lt;/scope&gt;
-        &lt;/dependency&gt;
+    <dependencies>
+        <!-- Wowza Streaming Engine dependencies -->
+        <dependency>
+            <groupId>com.wowza</groupId>
+            <artifactId>wms-server</artifactId>
+            <version>${wowza.version}</version>
+            <scope>provided</scope>
+        </dependency>
         
-        &lt;dependency&gt;
-            &lt;groupId&gt;com.wowza&lt;/groupId&gt;
-            &lt;artifactId&gt;wms-core&lt;/artifactId&gt;
-            &lt;version&gt;${wowza.version}&lt;/version&gt;
-            &lt;scope&gt;provided&lt;/scope&gt;
-        &lt;/dependency&gt;
+        <dependency>
+            <groupId>com.wowza</groupId>
+            <artifactId>wms-core</artifactId>
+            <version>${wowza.version}</version>
+            <scope>provided</scope>
+        </dependency>
         
-        &lt;dependency&gt;
-            &lt;groupId&gt;com.wowza&lt;/groupId&gt;
-            &lt;artifactId&gt;wms-httpstreamer-cupertinostreaming&lt;/artifactId&gt;
-            &lt;version&gt;${wowza.version}&lt;/version&gt;
-            &lt;scope&gt;provided&lt;/scope&gt;
-        &lt;/dependency&gt;
+        <dependency>
+            <groupId>com.wowza</groupId>
+            <artifactId>wms-httpstreamer-cupertinostreaming</artifactId>
+            <version>${wowza.version}</version>
+            <scope>provided</scope>
+        </dependency>
         
-        &lt;!-- Testing dependencies --&gt;
-        &lt;dependency&gt;
-            &lt;groupId&gt;junit&lt;/groupId&gt;
-            &lt;artifactId&gt;junit&lt;/artifactId&gt;
-            &lt;version&gt;4.13.2&lt;/version&gt;
-            &lt;scope&gt;test&lt;/scope&gt;
-        &lt;/dependency&gt;
+        <!-- Testing dependencies -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
         
-        &lt;dependency&gt;
-            &lt;groupId&gt;org.mockito&lt;/groupId&gt;
-            &lt;artifactId&gt;mockito-core&lt;/artifactId&gt;
-            &lt;version&gt;3.12.4&lt;/version&gt;
-            &lt;scope&gt;test&lt;/scope&gt;
-        &lt;/dependency&gt;
-    &lt;/dependencies&gt;
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>3.12.4</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
     
-    &lt;build&gt;
-        &lt;plugins&gt;
-            &lt;plugin&gt;
-                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
-                &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
-                &lt;version&gt;3.8.1&lt;/version&gt;
-                &lt;configuration&gt;
-                    &lt;source&gt;8&lt;/source&gt;
-                    &lt;target&gt;8&lt;/target&gt;
-                &lt;/configuration&gt;
-            &lt;/plugin&gt;
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
             
-            &lt;plugin&gt;
-                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
-                &lt;artifactId&gt;maven-jar-plugin&lt;/artifactId&gt;
-                &lt;version&gt;3.2.0&lt;/version&gt;
-                &lt;configuration&gt;
-                    &lt;archive&gt;
-                        &lt;manifest&gt;
-                            &lt;addDefaultImplementationEntries&gt;true&lt;/addDefaultImplementationEntries&gt;
-                        &lt;/manifest&gt;
-                        &lt;manifestEntries&gt;
-                            &lt;Built-By&gt;${user.name}&lt;/Built-By&gt;
-                            &lt;Build-Jdk&gt;${java.version}&lt;/Build-Jdk&gt;
-                            &lt;Implementation-Title&gt;${project.name}&lt;/Implementation-Title&gt;
-                            &lt;Implementation-Version&gt;${project.version}&lt;/Implementation-Version&gt;
-                            &lt;Implementation-Vendor&gt;${project.organization.name}&lt;/Implementation-Vendor&gt;
-                        &lt;/manifestEntries&gt;
-                    &lt;/archive&gt;
-                &lt;/configuration&gt;
-            &lt;/plugin&gt;
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                        <manifestEntries>
+                            <Built-By>${user.name}</Built-By>
+                            <Build-Jdk>${java.version}</Build-Jdk>
+                            <Implementation-Title>${project.name}</Implementation-Title>
+                            <Implementation-Version>${project.version}</Implementation-Version>
+                            <Implementation-Vendor>${project.organization.name}</Implementation-Vendor>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
             
-            &lt;plugin&gt;
-                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
-                &lt;artifactId&gt;maven-surefire-plugin&lt;/artifactId&gt;
-                &lt;version&gt;2.22.2&lt;/version&gt;
-            &lt;/plugin&gt;
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.22.2</version>
+            </plugin>
             
-            &lt;!-- Copy dependencies for easy deployment --&gt;
-            &lt;plugin&gt;
-                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
-                &lt;artifactId&gt;maven-dependency-plugin&lt;/artifactId&gt;
-                &lt;version&gt;3.2.0&lt;/version&gt;
-                &lt;executions&gt;
-                    &lt;execution&gt;
-                        &lt;id&gt;copy-dependencies&lt;/id&gt;
-                        &lt;phase&gt;package&lt;/phase&gt;
-                        &lt;goals&gt;
-                            &lt;goal&gt;copy-dependencies&lt;/goal&gt;
-                        &lt;/goals&gt;
-                        &lt;configuration&gt;
-                            &lt;outputDirectory&gt;${project.build.directory}/lib&lt;/outputDirectory&gt;
-                            &lt;includeScope&gt;runtime&lt;/includeScope&gt;
-                        &lt;/configuration&gt;
-                    &lt;/execution&gt;
-                &lt;/executions&gt;
-            &lt;/plugin&gt;
-        &lt;/plugins&gt;
-    &lt;/build&gt;
+            <!-- Copy dependencies for easy deployment -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
     
-    &lt;!-- Repository for Wowza dependencies (if using local installation) --&gt;
-    &lt;repositories&gt;
-        &lt;repository&gt;
-            &lt;id&gt;wowza-local&lt;/id&gt;
-            &lt;name&gt;Wowza Local Repository&lt;/name&gt;
-            &lt;url&gt;file://${project.basedir}/lib&lt;/url&gt;
-        &lt;/repository&gt;
-    &lt;/repositories&gt;
+    <!-- Repository for Wowza dependencies (if using local installation) -->
+    <repositories>
+        <repository>
+            <id>wowza-local</id>
+            <name>Wowza Local Repository</name>
+            <url>file://${project.basedir}/lib</url>
+        </repository>
+    </repositories>
     
-&lt;/project&gt;
+</project>

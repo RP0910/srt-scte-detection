@@ -245,10 +245,10 @@ run_tests() {
         
         # Run basic connectivity tests only
         log_info "Testing Wowza connectivity..."
-        if curl -s -f "http://localhost:8086" > /dev/null; then
-            log_success "Wowza is accessible"
+        if curl -s -f "http://localhost:8088" > /dev/null; then
+            log_success "Wowza is accessible on port 8088"
         else
-            log_warning "Wowza connectivity test failed"
+            log_warning "Wowza connectivity test failed on port 8088"
         fi
         
         log_info "For comprehensive testing, run: ./test-scte35-module.sh"
@@ -300,7 +300,7 @@ main() {
     echo "Next steps:"
     echo "1. Monitor logs: tail -f $WOWZA_HOME/logs/wowzastreamingengine_access.log | grep -i scte35"
     echo "2. Test SRT ingest: ffmpeg -re -i test.ts -c copy -f mpegts srt://localhost:9999?streamid=test"
-    echo "3. Check HLS output: curl http://localhost:8086/live/test/playlist.m3u8"
+    echo "3. Check HLS output: curl http://localhost:8088/live/test/playlist.m3u8"
     echo "4. Run full tests: ./test-scte35-module.sh"
     echo
 }
