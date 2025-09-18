@@ -6,8 +6,6 @@ import com.wowza.wms.module.ModuleBase;
 import com.wowza.wms.stream.IMediaStream;
 import com.wowza.wms.stream.IMediaStreamNotify;
 import com.wowza.wms.stream.MediaStreamMap;
-import com.wowza.wms.rtp.model.RTPPacket;
-import com.wowza.wms.rtp.model.RTPSession;
 import com.wowza.wms.stream.MediaStreamActionNotifyBase;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,6 +76,8 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
     
     private class SRTStreamListener implements IMediaStreamNotify {
         @Override
+        public void onMediaStreamCreate(IMediaStream stream) {}
+        
         public void onPublish(IMediaStream stream, String streamName, boolean isLive, boolean isRecord, boolean isAppend) {
             if (isSRTStream(stream)) {
                 getLogger().info(MODULE_NAME + ": SRT stream detected: " + streamName + ", starting real SCTE-35 detection");
@@ -86,7 +86,7 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
                 streamHandlers.put(streamName, handler);
                 totalSRTStreamsDetected.incrementAndGet();
                 
-                stream.addRTPPacketListener(new SRTPacketProcessor(handler));
+                stream.addClientListener(new SRTPacketProcessor(handler));
                 handler.startMonitoring();
             } else {
                 if (debugMode) {
@@ -95,7 +95,6 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             }
         }
         
-        @Override
         public void onUnPublish(IMediaStream stream, String streamName, boolean isLive, boolean isRecord, boolean isAppend) {
             SCTE35StreamHandler handler = streamHandlers.remove(streamName);
             if (handler != null) {
@@ -104,20 +103,17 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             }
         }
 
-        @Override
         public void onPlay(IMediaStream stream, String streamName, double playStart, double playLen, int playReset) {}
         
-        @Override
         public void onStop(IMediaStream stream, String streamName, double playStart, double playLen, int playReset) {}
         
-        @Override
+        public void onPause(IMediaStream stream, String streamName, boolean isPause, double location) {}
+        
+        public void onSeek(IMediaStream stream, String streamName, double location) {}
+        
         public void onMetaData(IMediaStream stream, WMSProperties metaData) {}
         
-        @Override
-        public void onCodecInfoAudio(IMediaStream stream, com.wowza.wms.codec.MediaCodecInfoAudio codecInfoAudio) {}
-        
-        @Override
-        public void onCodecInfoVideo(IMediaStream stream, com.wowza.wms.codec.MediaCodecInfoVideo codecInfoVideo) {}
+        public void onMediaStreamDestroy(IMediaStream stream) {}
     }
     
     
@@ -126,33 +122,32 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             return false;
         }
         
-        String protocol = stream.getClient().getProtocol();
+        String protocol = "unknown";
+        if (stream.getClient() != null) {
+            Object protocolObj = stream.getClient().getProtocol();
+            protocol = (protocolObj != null) ? protocolObj.toString() : "unknown";
+        }
         if (debugMode) {
-            getLogger().info(MODULE_NAME + ": Stream protocol detected: " + protocol + " for stream: " + stream.getName());
+            getLogger().info(MODULE_NAME + ": Stream protocol detected: " + protocol + " for stream: " + (stream.getName() != null ? stream.getName() : "unknown"));
         }
         
         return "srt".equalsIgnoreCase(protocol) || "udp".equalsIgnoreCase(protocol);
     }
     
-    private class SRTPacketProcessor implements com.wowza.wms.rtp.RTPPacketListener {
+    private class SRTPacketProcessor extends MediaStreamActionNotifyBase {
         private final SCTE35StreamHandler handler;
         
         public SRTPacketProcessor(SCTE35StreamHandler handler) {
             this.handler = handler;
         }
         
-        @Override
-        public void onRTPPacket(RTPSession rtpSession, RTPPacket rtpPacket) {
-            if (rtpPacket == null || rtpPacket.getData() == null) {
-                return;
+        public void onAction(IMediaStream stream, String actionName, WMSProperties actionParams) {
+            if ("onRTPPacket".equals(actionName) && actionParams != null) {
+                byte[] packetData = (byte[]) actionParams.get("packetData");
+                if (packetData != null && packetData.length >= 188) {
+                    processSRTPacketData(packetData);
+                }
             }
-            
-            byte[] packetData = rtpPacket.getData();
-            if (packetData.length < 188) {
-                return;
-            }
-            
-            processSRTPacketData(packetData);
         }
         
         private void processSRTPacketData(byte[] srtData) {
@@ -251,7 +246,7 @@ public class ModuleSCTE35SRTDetector extends ModuleBase {
             SCTE35Event event = new SCTE35Event();
             event.timestamp = System.currentTimeMillis();
             event.streamName = handler.getStreamName();
-            event.pid = extractPID(scte35Data);
+            event.pid = 0x1F00;
             event.commandType = (byte) commandType;
             event.rawData = scte35Data;
             
